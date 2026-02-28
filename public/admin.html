@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Painel Admin</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f9;
+      padding: 20px;
+    }
+
+    .login-box, .painel {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #075E54;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .logout {
+      background: #c0392b;
+    }
+
+    .card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+
+    .total {
+      background: #075E54;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+
+    canvas {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="login-box" id="loginBox">
+  <h2>Login Admin</h2>
+  <input type="text" id="usuario" placeholder="Usuário">
+  <input type="password" id="senha" placeholder="Senha">
+  <button onclick="fazerLogin()">Entrar</button>
+  <p id="erro" style="color:red;"></p>
+</div>
+
+<div class="painel" id="painel" style="display:none;">
+  <h2>Clientes Recebidos</h2>
+  <button class="logout" onclick="logout()">Sair</button>
+
+  <h3>Faturamento Mensal</h3>
+  <canvas id="graficoFaturamento"></canvas>
+
+  <div id="lista"></div>
+</div>
+
+<script>
+
+let grafico;
+
+// ================= LOGIN =================
+function fazerLogin() {
+
+  const usuario = document.getElementById("usuario").value;
+  const senha = document.getElementById("senha").value;
+
+  fetch("/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ usuario, senha })
+  })
+  .then(res => {
+    if (!res.ok) throw new Error();
+    return res.json();
+  })
+  .then(data => {
+
+    localStorage.setItem("token", data.token);
+
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("painel").style.display = "block";
+
+    carregarClientes();
+  })
+  .catch(() => {
+    document.getElementById("erro").innerText = "Usuário ou senha incorretos";
+  });
+}
+
+// ================= LOGOUT =================
+function logout() {
+  localStorage.removeItem("token");
+  location.reload();
+}
+
+// ================= VERIFICAR LOGIN AO ABRIR =================
+window.onload = function() {
+
+  const token = localStorage.getItem("token");
+
+  if (token) {
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("painel").style.display = "block";
+    carregarClientes();
+  }
+}
+
+// ================= CARREGAR CLIENTES =================
+function carregarClientes() {
+
+  fetch("/clientes", {
+    headers: {
+      "Authorization": localStorage.getItem("token")
+    }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error();
+    return res.json();
+  })
+  .then(data => {
+
+    const lista = document.getElementById("lista");
+    lista.innerHTML = "";
+
+    let total = 0;
+
+    const meses = {};
+
+    data.forEach(cliente => {
+
+      total += cliente.valor;
+
+      const dataAtual = new Date();
+      const mes = dataAtual.getMonth() + 1;
+
+      if (!meses[mes]) {
+        meses[mes] = 0;
+      }
+
+      meses[mes] += cliente.valor;
+
+      const div = document.createElement("div");
+      div.classList.add("card");
+
+      div.innerHTML = `
+        <strong>${cliente.nome}</strong><br>
+        Serviço: ${cliente.servico}<br>
+        Valor: R$ ${cliente.valor}
+      `;
+
+      lista.appendChild(div);
+    });
+
+    const resumo = document.createElement("div");
+    resumo.classList.add("total");
+    resumo.innerText = "Total faturado: R$ " + total;
+
+    lista.appendChild(resumo);
+
+    gerarGrafico(meses);
+  });
+}
+
+// ================= GERAR GRÁFICO =================
+function gerarGrafico(meses) {
+
+  const ctx = document.getElementById("graficoFaturamento");
+
+  if (grafico) {
+    grafico.destroy();
+  }
+
+  grafico = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(meses),
+      datasets: [{
+        label: 'Faturamento por Mês',
+        data: Object.values(meses),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true
+    }
+  });
+}
+
+</script>
+
+</body>
+</html>

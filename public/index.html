@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Atendimento Automático</title>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: Arial;
+      background: #e5ddd5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .chat-container {
+      width: 400px;
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      background: #075E54;
+      color: white;
+      padding: 15px;
+      font-weight: bold;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      background: #ece5dd;
+    }
+
+    .msg {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      max-width: 70%;
+      font-size: 14px;
+    }
+
+    .bot {
+      background: white;
+      align-self: flex-start;
+    }
+
+    .cliente {
+      background: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      outline: none;
+    }
+
+    .chat-input button {
+      background: #075E54;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="chat-container">
+
+  <div class="chat-header">
+    Atendimento Online
+  </div>
+
+  <div id="messages"></div>
+
+  <div class="chat-input">
+    <input type="text" id="input" placeholder="Digite aqui..."
+      onkeydown="if(event.key==='Enter') sendMessage()">
+    <button onclick="sendMessage()">Enviar</button>
+  </div>
+
+</div>
+
+<script>
+  const messages = document.getElementById("messages");
+
+  let etapa = 0;
+  let cliente = { nome: "", servico: "" };
+
+  function addMessage(text, sender) {
+    const div = document.createElement("div");
+    div.classList.add("msg");
+    div.classList.add(sender === "Bot" ? "bot" : "cliente");
+    div.innerText = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function sendMessage() {
+    const input = document.getElementById("input");
+    const text = input.value;
+    if (!text) return;
+
+    addMessage(text, "Cliente");
+
+    if (etapa === 0) {
+      if (text === "1") {
+        addMessage("Perfeito! Qual seu nome?", "Bot");
+        etapa = 1;
+      } else {
+        addMessage("Digite 1 para solicitar orçamento.", "Bot");
+      }
+    }
+
+    else if (etapa === 1) {
+      cliente.nome = text;
+      addMessage("Prazer, " + cliente.nome + "!", "Bot");
+      addMessage("1 - Instalação elétrica (R$ 300)", "Bot");
+      addMessage("2 - Manutenção elétrica (R$ 200)", "Bot");
+      etapa = 2;
+    }
+
+    else if (etapa === 2) {
+      let valor = 0;
+
+      if (text === "1") {
+        cliente.servico = "Instalação elétrica";
+        valor = 300;
+      } 
+      else if (text === "2") {
+        cliente.servico = "Manutenção elétrica";
+        valor = 200;
+      } 
+      else {
+        addMessage("Escolha 1 ou 2.", "Bot");
+        return;
+      }
+
+      addMessage("Orçamento estimado: R$ " + valor, "Bot");
+
+      fetch("/salvar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: cliente.nome,
+          servico: cliente.servico,
+          valor: valor
+        })
+      });
+
+      addMessage("Obrigado pelo contato!", "Bot");
+
+      setTimeout(() => {
+        etapa = 0;
+        cliente = { nome: "", servico: "" };
+        addMessage("Digite 1 para novo orçamento.", "Bot");
+      }, 4000);
+    }
+
+    input.value = "";
+  }
+
+  addMessage("Olá 👋 Bem-vindo!", "Bot");
+  addMessage("Digite 1 para solicitar orçamento.", "Bot");
+</script>
+
+</body>
+</html>
